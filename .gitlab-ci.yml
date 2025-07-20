@@ -23,7 +23,7 @@ test:
     - echo "Run unit tests here (if any)"
 
 code_scan:
-  stage: code_scan
+  stage: scan
   script:
     - sonar-scanner
 
