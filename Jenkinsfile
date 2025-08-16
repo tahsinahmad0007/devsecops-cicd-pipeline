@@ -2,21 +2,20 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout') {
+        stage('Build Docker Image') {
             steps {
-                git branch: 'main', url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops/devsecops-pipeline.git'
+                script {
+                    sh 'docker-compose build'
+                }
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Run Container') {
             steps {
-                dir('app') {
-                    script {
-                        docker.build("devsecops-app")
-                    }
+                script {
+                    sh 'docker-compose up -d'
                 }
             }
         }
     }
 }
-
