@@ -12,7 +12,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build services inside Jenkins container
                     sh 'docker compose -f docker-compose.yml build'
                 }
             }
@@ -21,7 +20,6 @@ pipeline {
         stage('Run Container') {
             steps {
                 script {
-                    // Run services inside Jenkins container
                     sh 'docker compose -f docker-compose.yml up -d'
                 }
             }
@@ -30,17 +28,9 @@ pipeline {
         stage('Verify Running Containers') {
             steps {
                 script {
-                    // Check running containers
                     sh 'docker ps'
                 }
             }
-        }
-    }
-
-    post {
-        always {
-            echo 'Cleaning up...'
-            sh 'docker compose -f docker-compose.yml down || true'
         }
     }
 }
