@@ -1,5 +1,14 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'docker:24.0.7-dind'
+            args '--privileged -v /var/lib/docker'
+        }
+    }
+
+    environment {
+        DOCKER_BUILDKIT = '1'
+    }
 
     stages {
         stage('Checkout') {
@@ -12,7 +21,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker compose build'
+                    sh 'docker compose -f docker-compose.yml build'
                 }
             }
         }
@@ -20,7 +29,15 @@ pipeline {
         stage('Run Container') {
             steps {
                 script {
-                    sh 'docker compose up -d'
+                    sh 'docker compose -f docker-compose.yml up -d'
+                }
+            }
+        }
+
+        stage('Verify App') {
+            steps {
+                script {
+                    sh 'docker ps'
                 }
             }
         }
