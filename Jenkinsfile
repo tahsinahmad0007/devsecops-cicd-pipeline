@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     tools {
-        sonarQubeScanner 'SonarScanner'
+        // This must match the SonarScanner installation name in Jenkins Global Tool Config
+        SonarQubeScanner 'SonarScanner'
     }
 
     stages {
@@ -10,19 +11,6 @@ pipeline {
             steps {
                 git branch: 'main',
                     url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('sonarqube') {
-                    sh '''
-                        ./mvnw clean verify sonar:sonar \
-                          -Dsonar.projectKey=devsecops-app \
-                          -Dsonar.host.url=http://sonarqube:9000 \
-                          -Dsonar.login=$SONARQUBE_AUTH_TOKEN
-                    '''
-                }
             }
         }
 
@@ -41,11 +29,33 @@ pipeline {
                 }
             }
         }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('MySonarQube') {   // Name must match the SonarQube server you added in Jenkins System Config
+                    sh '''
+                        sonar-scanner \
+                          -Dsonar.projectKey=secure-cicd-devsecops \
+                          -Dsonar.sources=. \
+                          -Dsonar.host.url=http://sonarqube:9000 \
+                          -Dsonar.login=${SONAR_AUTH_TOKEN}
+                    '''
+                }
+            }
+        }
+
+        stage('Verify Running Containers') {
+            steps {
+                script {
+                    sh 'docker ps'
+                }
+            }
+        }
     }
 
     post {
         always {
-            echo 'Cleaning up...'
+            echo "Cleaning up..."
             sh 'docker compose -f docker-compose.yml down || true'
         }
     }
