@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        // Use the installed SonarScanner in Jenkins
-        SonarQubeScanner 'SonarScanner'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -40,7 +35,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('MySonarQube') {
+                withSonarQubeEnv('SonarQubeServer') {  // <-- Use the exact name from Jenkins global config
                     sh 'sonar-scanner -Dsonar.projectKey=secure-cicd-devsecops -Dsonar.sources=.'
                 }
             }
