@@ -40,6 +40,8 @@ services:
 
 networks:
   devsecops-net:
+    external: true
+
 
 volumes:
   sonar-db-data:
