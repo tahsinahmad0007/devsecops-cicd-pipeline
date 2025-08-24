@@ -8,7 +8,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git', branch: 'main'
+                git branch: 'main',
+                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
             }
         }
 
@@ -18,11 +19,11 @@ pipeline {
                     sh '''
                         echo "Cleaning up old containers (excluding Jenkins)..."
 
-                        # Stop and remove only specific containers
+                        # Remove specific containers if running
                         docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
                         docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
 
-                        # Remove old images of app only (keep Jenkins safe)
+                        # Remove old app images only
                         docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
                     '''
                 }
@@ -51,13 +52,23 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     sh '''
-                        docker exec devsecops-app npm test || true
+                        # Optional: run tests (comment if not needed)
+                        # docker exec devsecops-app npm test || true
+
                         sonar-scanner \
                           -Dsonar.projectKey=secure-cicd \
                           -Dsonar.sources=. \
                           -Dsonar.host.url=http://sonarqube:9000 \
                           -Dsonar.login=$SONARQUBE_ENV
                     '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
