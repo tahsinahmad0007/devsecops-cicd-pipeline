@@ -58,22 +58,21 @@ pipeline {
             steps {
                 withSonarQubeEnv('MySonarQube') {
                     script {
-                        // Run tests (won’t fail the build if no real tests exist)
+                        // Optional test placeholder (won’t fail build)
                         sh 'docker exec devsecops-app npm test || true'
 
-                        // Use Jenkins SonarScanner tool instead of raw sonar-scanner
-                        withSonarQubeScanner('SonarScanner') {
-                            sh '''
-                                sonar-scanner \
-                                    -Dsonar.projectKey=secure-cicd \
-                                    -Dsonar.sources=. \
-                                    -Dsonar.host.url=http://sonarqube:9000 \
-                                    -Dsonar.login=$SONARQUBE_ENV
-                            '''
-                        }
+                        // Correct way to call SonarScanner from Jenkins tool config
+                        def scannerHome = tool 'SonarScanner'
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                                -Dsonar.projectKey=secure-cicd \
+                                -Dsonar.sources=. \
+                                -Dsonar.host.url=http://sonarqube:9000 \
+                                -Dsonar.login=$SONARQUBE_ENV
+                        """
                     }
                 }
-            }
+            }   
         }
 
 
