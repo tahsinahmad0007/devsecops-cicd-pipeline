@@ -16,14 +16,20 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        echo "Cleaning up old containers (excluding Jenkins)..."
+                        echo "🔄 Cleaning up old containers and freeing ports..."
 
-                        # Stop and remove only specific containers
+                        # Stop and remove app + SonarQube (ignore Jenkins container)
                         docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
                         docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
-
-                        # Remove old images of app only (keep Jenkins safe)
                         docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
+
+                        # Free up port 8080 if any container is blocking it
+                        CONTAINER_ID=$(docker ps -q --filter "publish=8080")
+                        if [ -n "$CONTAINER_ID" ]; then
+                          echo "⚠️ Port 8080 is busy. Stopping container $CONTAINER_ID..."
+                          docker stop $CONTAINER_ID
+                          docker rm -f $CONTAINER_ID
+                        fi
                     '''
                 }
             }
@@ -71,14 +77,8 @@ pipeline {
         }
 
         stage('Deploy') {
-            when {
-                expression { currentBuild.result == null } // Only if all previous stages passed
-            }
             steps {
-                sh '''
-                    echo "Deploying application..."
-                    docker compose -f docker-compose.yml up -d
-                '''
+                echo "🚀 Deployment step goes here (to be implemented later)."
             }
         }
     }
