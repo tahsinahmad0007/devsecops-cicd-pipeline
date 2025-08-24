@@ -3,13 +3,13 @@ version: "3.9"
 services:
   app:
     build:
-      context: .
+      context: ./app
       dockerfile: Dockerfile
     container_name: devsecops-app
     ports:
       - "3000:3000"
-    networks:
-      - devsecops-net
+    depends_on:
+      - sonarqube
 
   sonarqube:
     image: sonarqube:lts-community

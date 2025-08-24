@@ -32,9 +32,15 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker compose -f docker-compose.yml build'
+                sh '''
+                    echo "Building app and SonarQube images..."
+                    pwd
+                    ls -R   # Debug: show all files Jenkins sees
+                    docker compose -f docker-compose.yml build app sonarqube
+                '''
             }
         }
+
 
         stage('Run Container') {
             steps {
