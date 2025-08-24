@@ -16,13 +16,14 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        echo "Cleaning up old containers (app + SonarQube only)..."
+                        echo "Cleaning up old containers (excluding Jenkins)..."
 
-                        # Stop and remove app + SonarQube only (NOT Jenkins!)
+                        # Stop and remove only specific containers
                         docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
                         docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
+                        docker ps -aq --filter "name=sonar-db" | xargs -r docker rm -f
 
-                        # Remove old app image only
+                        # Remove old images of app only (keep Jenkins & SonarQube safe)
                         docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
                     '''
                 }
@@ -31,13 +32,13 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker compose -f docker-compose.yml build app sonarqube'
+                sh 'docker compose -f docker-compose.yml build'
             }
         }
 
-        stage('Run Containers') {
+        stage('Run Container') {
             steps {
-                sh 'docker compose -f docker-compose.yml up -d app sonarqube'
+                sh 'docker compose -f docker-compose.yml up -d'
             }
         }
 
@@ -49,8 +50,10 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SonarQube') {
+                withSonarQubeEnv('MySonarQube') {
                     sh '''
+                        echo "Waiting for SonarQube to be ready..."
+                        sleep 20
                         docker exec devsecops-app npm test || true
                         sonar-scanner \
                           -Dsonar.projectKey=secure-cicd \
@@ -64,9 +67,21 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 2, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
+            steps {
+                sh '''
+                    echo "Deploying Application..."
+                    # For Phase 1, just keep app running (already up via docker-compose)
+                '''
             }
         }
     }
