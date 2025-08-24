@@ -16,20 +16,14 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        echo "🔄 Cleaning up old containers and freeing ports..."
+                        echo "Cleaning up old containers (app + SonarQube only)..."
 
-                        # Stop and remove app + SonarQube (ignore Jenkins container)
+                        # Stop and remove app + SonarQube only (NOT Jenkins!)
                         docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
                         docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
-                        docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
 
-                        # Free up port 8080 if any container is blocking it
-                        CONTAINER_ID=$(docker ps -q --filter "publish=8080")
-                        if [ -n "$CONTAINER_ID" ]; then
-                          echo "⚠️ Port 8080 is busy. Stopping container $CONTAINER_ID..."
-                          docker stop $CONTAINER_ID
-                          docker rm -f $CONTAINER_ID
-                        fi
+                        # Remove old app image only
+                        docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
                     '''
                 }
             }
@@ -37,13 +31,13 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker compose -f docker-compose.yml build'
+                sh 'docker compose -f docker-compose.yml build app sonarqube'
             }
         }
 
-        stage('Run Container') {
+        stage('Run Containers') {
             steps {
-                sh 'docker compose -f docker-compose.yml up -d'
+                sh 'docker compose -f docker-compose.yml up -d app sonarqube'
             }
         }
 
@@ -73,12 +67,6 @@ pipeline {
                 timeout(time: 2, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                echo "🚀 Deployment step goes here (to be implemented later)."
             }
         }
     }
