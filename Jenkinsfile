@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = credentials('sonarqube-token')   // replace with your actual credential ID
+        SONARQUBE_ENV = credentials('sonarqube-token')
     }
 
     stages {
@@ -12,41 +12,38 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    sh 'docker compose -f docker-compose.yml build'
-                }
-            }
-        }
-
         stage('Cleanup Old Containers') {
             steps {
                 script {
                     sh '''
-                        echo "Cleaning up old containers and images..."
-                        docker compose -f docker-compose.yml down || true
-                        docker rm -f $(docker ps -aq) || true
-                        docker rmi -f $(docker images -aq) || true
-                        docker system prune -a --volumes -f || true
+                        echo "Cleaning up old containers (excluding Jenkins)..."
+
+                        # Stop and remove only specific containers
+                        docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
+                        docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
+
+                        # Remove old images of app only (keep Jenkins safe)
+                        docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
                     '''
                 }
             }
         }
 
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker compose -f docker-compose.yml build'
+            }
+        }
+
         stage('Run Container') {
             steps {
-                script {
-                    sh 'docker compose -f docker-compose.yml up -d'
-                }
+                sh 'docker compose -f docker-compose.yml up -d'
             }
         }
 
         stage('Verify Running Containers') {
             steps {
-                script {
-                    sh 'docker ps -a'
-                }
+                sh 'docker ps'
             }
         }
 
@@ -54,12 +51,12 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     sh '''
-                        echo "Running SonarQube analysis..."
-                        ./sonar-scanner \
-                          -Dsonar.projectKey=secure-cicd-devsecops \
+                        docker exec devsecops-app npm test || true
+                        sonar-scanner \
+                          -Dsonar.projectKey=secure-cicd \
                           -Dsonar.sources=. \
-                          -Dsonar.host.url=$SONAR_HOST_URL \
-                          -Dsonar.login=$SONAR_AUTH_TOKEN
+                          -Dsonar.host.url=http://sonarqube:9000 \
+                          -Dsonar.login=$SONARQUBE_ENV
                     '''
                 }
             }
