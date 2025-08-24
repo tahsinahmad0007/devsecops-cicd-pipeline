@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   app:
     build:
@@ -12,7 +14,7 @@ services:
     build:
       context: ./jenkins
       dockerfile: Dockerfile
-    container_name: jenkins
+    container_name: devsecops-jenkins   # renamed to avoid conflict with default "jenkins"
     user: root
     ports:
       - "8080:8080"
@@ -23,8 +25,8 @@ services:
     restart: unless-stopped
 
   sonarqube:
-    image: sonarqube:latest
-    container_name: sonarqube
+    image: sonarqube:lts   # safer long-term tag instead of "latest"
+    container_name: devsecops-sonarqube
     ports:
       - "9000:9000"
     environment:
