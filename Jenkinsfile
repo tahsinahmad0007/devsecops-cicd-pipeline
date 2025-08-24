@@ -67,7 +67,7 @@ pipeline {
                             ${scannerHome}/bin/sonar-scanner \
                                 -Dsonar.projectKey=secure-cicd \
                                 -Dsonar.sources=. \
-                                -Dsonar.host.url=http://sonarqube:9000 \
+                                -Dsonar.host.url=http://localhost:9000 \
                                 -Dsonar.login=$SONARQUBE_ENV
                         """
                     }
