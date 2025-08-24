@@ -57,19 +57,25 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('MySonarQube') {
-                    sh '''
-                        echo "Waiting for SonarQube to be ready..."
-                        sleep 20
-                        docker exec devsecops-app npm test || true
-                        sonar-scanner \
-                          -Dsonar.projectKey=secure-cicd \
-                          -Dsonar.sources=. \
-                          -Dsonar.host.url=http://sonarqube:9000 \
-                          -Dsonar.login=$SONARQUBE_ENV
-                    '''
+                    script {
+                        // Run tests (won’t fail the build if no real tests exist)
+                        sh 'docker exec devsecops-app npm test || true'
+
+                        // Use Jenkins SonarScanner tool instead of raw sonar-scanner
+                        withSonarQubeScanner('SonarScanner') {
+                            sh '''
+                                sonar-scanner \
+                                    -Dsonar.projectKey=secure-cicd \
+                                    -Dsonar.sources=. \
+                                    -Dsonar.host.url=http://sonarqube:9000 \
+                                    -Dsonar.login=$SONARQUBE_ENV
+                            '''
+                        }
+                    }
                 }
             }
         }
+
 
         stage('Quality Gate') {
             steps {

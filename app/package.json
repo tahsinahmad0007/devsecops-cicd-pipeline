@@ -4,7 +4,8 @@
   "description": "Simple Express app for DevSecOps CI/CD",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "echo \"No tests yet\" && exit 0"
   },
   "dependencies": {
     "express": "^4.18.2"
