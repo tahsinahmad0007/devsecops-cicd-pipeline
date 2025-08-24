@@ -8,8 +8,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
+                git url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git', branch: 'main'
             }
         }
 
@@ -19,11 +18,11 @@ pipeline {
                     sh '''
                         echo "Cleaning up old containers (excluding Jenkins)..."
 
-                        # Remove specific containers if running
+                        # Stop and remove only specific containers
                         docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
                         docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
 
-                        # Remove old app images only
+                        # Remove old images of app only (keep Jenkins safe)
                         docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
                     '''
                 }
@@ -52,9 +51,7 @@ pipeline {
             steps {
                 withSonarQubeEnv('SonarQube') {
                     sh '''
-                        # Optional: run tests (comment if not needed)
-                        # docker exec devsecops-app npm test || true
-
+                        docker exec devsecops-app npm test || true
                         sonar-scanner \
                           -Dsonar.projectKey=secure-cicd \
                           -Dsonar.sources=. \
@@ -70,6 +67,18 @@ pipeline {
                 timeout(time: 2, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                expression { currentBuild.result == null } // Only if all previous stages passed
+            }
+            steps {
+                sh '''
+                    echo "Deploying application..."
+                    docker compose -f docker-compose.yml up -d
+                '''
             }
         }
     }
