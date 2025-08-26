@@ -2,10 +2,12 @@ pipeline {
     agent any
 
     environment {
+        // Using SonarQube token securely
         SONARQUBE_ENV = credentials('sonarqube-token')
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 git url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git', branch: 'main'
@@ -41,7 +43,6 @@ pipeline {
             }
         }
 
-
         stage('Run Container') {
             steps {
                 sh 'docker compose -f docker-compose.yml up -d'
@@ -57,24 +58,20 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('MySonarQube') {
-                    script {
-                        // Optional test placeholder (won’t fail build)
-                        sh 'docker exec devsecops-app npm test || true'
-
-                        // Correct way to call SonarScanner from Jenkins tool config
-                        def scannerHome = tool 'SonarScanner'
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner \
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
+                        sh '''
+                            docker exec devsecops-app npm test || true
+                            
+                            $SONAR_SCANNER_HOME/bin/sonar-scanner \
                                 -Dsonar.projectKey=secure-cicd \
                                 -Dsonar.sources=. \
                                 -Dsonar.host.url=http://sonarqube:9000 \
-                                -Dsonar.login=$SONARQUBE_ENV
-                        """
+                                -Dsonar.login=$SONARQUBE_TOKEN
+                        '''
                     }
                 }
-            }   
+            }
         }
-
 
         stage('Quality Gate') {
             steps {
