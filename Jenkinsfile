@@ -1,18 +1,16 @@
 pipeline {
     agent any
 
-    tools {
-        // This tells Jenkins to use the SonarQube Scanner tool you configured.
-        // The name 'MySonarScanner' MUST match the name you gave it in 
-        // Manage Jenkins -> Tools.
-        sonarscanner 'MySonarScanner'
+    environment {
+        DOCKER_IMAGE = "devsecops-ci-app"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git', branch: 'main'
+                git branch: 'main',
+                    credentialsId: '41505621-933c-4924-b4e0-e3bf67f60ea9',
+                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
             }
         }
 
@@ -21,12 +19,10 @@ pipeline {
                 script {
                     sh '''
                         echo "Cleaning up old containers (excluding Jenkins)..."
-                        # Stop and remove only specific containers
-                        docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
-                        docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
-                        docker ps -aq --filter "name=sonar-db" | xargs -r docker rm -f
-                        # Remove old images of app only
-                        docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
+                        docker ps -aq --filter name=devsecops-app | xargs -r docker rm -f
+                        docker ps -aq --filter name=sonarqube | xargs -r docker rm -f
+                        docker ps -aq --filter name=sonar-db | xargs -r docker rm -f
+                        docker images ${DOCKER_IMAGE} -q | xargs -r docker rmi -f
                     '''
                 }
             }
@@ -55,15 +51,14 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                // 'MySonarQube' should match the server name in Manage Jenkins -> Configure System
                 withSonarQubeEnv('MySonarQube') {
-                    // 'sonarqube-token' is the ID of your credential in Jenkins
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
                         sh '''
+                            # Run tests inside app container
                             docker exec devsecops-app npm test || true
-                            
-                            # The 'tools' block added 'sonar-scanner' to the PATH, so we can call it directly.
-                            sonar-scanner \
+
+                            # Use Jenkins-provided SonarScanner
+                            $SONAR_SCANNER_HOME/bin/sonar-scanner \
                                 -Dsonar.projectKey=secure-cicd \
                                 -Dsonar.sources=. \
                                 -Dsonar.host.url=http://sonarqube:9000 \
@@ -77,21 +72,15 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
-                    // This step checks the SonarQube quality gate result
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
 
         stage('Deploy') {
-            when {
-                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
-            }
             steps {
-                sh '''
-                    echo "Deploying Application..."
-                    # Deployment steps would go here
-                '''
+                echo 'Deploying application...'
+                // Deployment steps go here
             }
         }
     }
