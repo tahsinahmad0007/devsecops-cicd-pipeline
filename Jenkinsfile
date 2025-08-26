@@ -1,9 +1,11 @@
 pipeline {
     agent any
 
-    environment {
-        // Using SonarQube token securely
-        SONARQUBE_ENV = credentials('sonarqube-token')
+    tools {
+        // This tells Jenkins to use the SonarQube Scanner tool you configured.
+        // The name 'MySonarScanner' MUST match the name you gave it in 
+        // Manage Jenkins -> Tools.
+        sonarscanner 'MySonarScanner'
     }
 
     stages {
@@ -19,13 +21,11 @@ pipeline {
                 script {
                     sh '''
                         echo "Cleaning up old containers (excluding Jenkins)..."
-
                         # Stop and remove only specific containers
                         docker ps -aq --filter "name=devsecops-app" | xargs -r docker rm -f
                         docker ps -aq --filter "name=sonarqube" | xargs -r docker rm -f
                         docker ps -aq --filter "name=sonar-db" | xargs -r docker rm -f
-
-                        # Remove old images of app only (keep Jenkins & SonarQube safe)
+                        # Remove old images of app only
                         docker images "devsecops-ci-app" -q | xargs -r docker rmi -f
                     '''
                 }
@@ -36,8 +36,6 @@ pipeline {
             steps {
                 sh '''
                     echo "Building app and SonarQube images..."
-                    pwd
-                    ls -R   # Debug: show all files Jenkins sees
                     docker compose -f docker-compose.yml build app sonarqube
                 '''
             }
@@ -57,12 +55,15 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
+                // 'MySonarQube' should match the server name in Manage Jenkins -> Configure System
                 withSonarQubeEnv('MySonarQube') {
+                    // 'sonarqube-token' is the ID of your credential in Jenkins
                     withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
                         sh '''
                             docker exec devsecops-app npm test || true
                             
-                            $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                            # The 'tools' block added 'sonar-scanner' to the PATH, so we can call it directly.
+                            sonar-scanner \
                                 -Dsonar.projectKey=secure-cicd \
                                 -Dsonar.sources=. \
                                 -Dsonar.host.url=http://sonarqube:9000 \
@@ -76,6 +77,7 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
+                    // This step checks the SonarQube quality gate result
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -88,7 +90,7 @@ pipeline {
             steps {
                 sh '''
                     echo "Deploying Application..."
-                    # For Phase 1, just keep app running (already up via docker-compose)
+                    # Deployment steps would go here
                 '''
             }
         }
