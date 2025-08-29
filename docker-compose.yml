@@ -44,3 +44,16 @@ volumes:
   sonar_data:
   sonar_extensions:
   sonar_logs:
+
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: devsecops-app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - sonarqube
+    networks:
+      - devsecops-net
