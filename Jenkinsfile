@@ -2,23 +2,22 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE_ENV = 'MySonarQube'   // Jenkins SonarQube server config
+        DOCKER_COMPOSE = 'docker compose -f docker-compose.yml'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git',
-                    credentialsId: '41505621-933c-4924-b4e0-e3bf67f60ea9'
+                    credentialsId: '41505621-933c-4924-b4e0-e3bf67f60ea9',
+                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
             }
         }
 
         stage('Cleanup Old Containers') {
             steps {
                 sh '''
-                    echo "Cleaning up old containers (excluding Jenkins)..."
+                    echo "🧹 Cleaning up old containers (excluding Jenkins)..."
                     docker ps -aq --filter name=devsecops-app | xargs -r docker rm -f
                     docker ps -aq --filter name=sonarqube | xargs -r docker rm -f
                     docker ps -aq --filter name=sonar-db | xargs -r docker rm -f
@@ -30,70 +29,67 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                    echo "Building app and SonarQube images..."
-                    docker compose -f docker-compose.yml build app sonarqube
+                    echo "🐳 Building app and SonarQube images..."
+                    ${DOCKER_COMPOSE} build app sonarqube
                 '''
             }
         }
 
         stage('Run Containers') {
             steps {
-                sh 'docker compose -f docker-compose.yml up -d'
+                sh '''
+                    echo "🚀 Starting containers..."
+                    ${DOCKER_COMPOSE} up -d app sonarqube db
+                '''
             }
         }
 
         stage('Verify Running Containers') {
             steps {
-                sh 'docker ps'
+                sh '''
+                    echo "🔍 Verifying running containers..."
+                    docker ps
+                '''
             }
         }
 
         stage('Wait for SonarQube') {
-            steps {
-                script {
-                    timeout(time: 7, unit: 'MINUTES') {   // keep retrying for 7 mins
-                        waitUntil {
-                            def status = sh(
-                                script: 'curl -s http://sonarqube:9000/api/system/health | grep -o \'"status":"UP"\' || true',
-                                returnStdout: true
-                            ).trim()
-                            if (status == '"status":"UP"') {
-                                echo "✅ SonarQube is UP!"
-                                return true
-                            } else {
-                                echo "⏳ SonarQube not ready yet, retrying in 10s..."
-                                sleep 10
-                                return false
-                            }
-                        }
-                    }
-                }
-            }
+  steps {
+    script {
+      timeout(time: 7, unit: 'MINUTES') {
+        waitUntil {
+          def res = sh(script: "curl -s http://sonarqube:9000/api/system/health | grep -o 'GREEN' || true",
+                       returnStdout: true).trim()
+          if (res != 'GREEN') {
+            echo '⏳ SonarQube not ready yet, retrying in 10s...'
+            sleep 10
+            return false
+          }
+          true
         }
+      }
+    }
+  }
+}
+
 
         stage('SonarQube Analysis') {
             steps {
-                withSonarQubeEnv("${SONARQUBE_ENV}") {
-                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
-                        sh '''
-                            echo "Running tests inside app container..."
-                            docker exec devsecops-app npm test || true
-
-                            echo "Running SonarQube scanner..."
-                            $SONAR_SCANNER_HOME/bin/sonar-scanner \
-                              -Dsonar.projectKey=secure-cicd \
-                              -Dsonar.sources=app \
-                              -Dsonar.host.url=http://sonarqube:9000 \
-                              -Dsonar.login=$SONARQUBE_TOKEN
-                        '''
-                    }
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        echo "🔎 Running SonarQube Scanner..."
+                        ./gradlew sonarqube \
+                          -Dsonar.projectKey=secure-cicd-project \
+                          -Dsonar.host.url=http://sonarqube:9000 \
+                          -Dsonar.login=$SONARQUBE_TOKEN
+                    '''
                 }
             }
         }
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 2, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -101,7 +97,10 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo '🚀 Deploying Application...'
+                sh '''
+                    echo "🚀 Deploying application..."
+                    docker ps
+                '''
             }
         }
     }
