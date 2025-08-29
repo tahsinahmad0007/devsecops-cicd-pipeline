@@ -50,24 +50,29 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('MySonarQube') {
-                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
-                        sh '''
-                            # Run tests inside app container
-                            docker exec devsecops-app npm test || true
+    steps {
+        withSonarQubeEnv('MySonarQube') {
+            withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONARQUBE_TOKEN')]) {
+                script {
+                    // Use SonarQube Scanner installed in Jenkins (not inside container)
+                    def scannerHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
 
-                            # Use Jenkins-provided SonarScanner
-                            $SONAR_SCANNER_HOME/bin/sonar-scanner \
-                                -Dsonar.projectKey=secure-cicd \
-                                -Dsonar.sources=. \
-                                -Dsonar.host.url=http://sonarqube:9000 \
-                                -Dsonar.login=$SONARQUBE_TOKEN
-                        '''
-                    }
+                    sh """
+                        npm test || true
+
+                        ${scannerHome}/bin/sonar-scanner \
+                          -Dsonar.projectKey=secure-cicd \
+                          -Dsonar.sources=app \
+                          -Dsonar.host.url=http://sonarqube:9000 \
+                          -Dsonar.login=$SONARQUBE_TOKEN
+                    """
                 }
             }
         }
+    }
+}
+
+
 
         stage('Quality Gate') {
             steps {
