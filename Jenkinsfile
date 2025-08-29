@@ -51,7 +51,7 @@ pipeline {
         stage('Wait for SonarQube') {
             steps {
                 script {
-                    timeout(time: 3, unit: 'MINUTES') {   // keep retrying for 3 mins
+                    timeout(time: 7, unit: 'MINUTES') {   // keep retrying for 7 mins
                         waitUntil {
                             def status = sh(
                                 script: 'curl -s http://sonarqube:9000/api/system/health | grep -o \'"status":"UP"\' || true',
