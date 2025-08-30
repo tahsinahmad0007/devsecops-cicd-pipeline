@@ -48,7 +48,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                     script {
-                        timeout(time: 5, unit: 'MINUTES') {
+                        timeout(time: 15, unit: 'MINUTES') {
                             waitUntil {
                                 def response = sh(
                                     script: "curl -s -u ${SONAR_TOKEN}: http://sonarqube:9000/api/system/health | grep -o GREEN || true",
