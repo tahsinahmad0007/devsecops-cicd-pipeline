@@ -39,7 +39,7 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Starting containers..."
-                    ${DOCKER_COMPOSE} up -d app sonarqube db
+                    ${DOCKER_COMPOSE} up -d app sonarqube sonar-db
                 '''
             }
         }
