@@ -53,23 +53,21 @@ pipeline {
             }
         }
 
-        stage('Wait for SonarQube') {
-  steps {
-    script {
-      timeout(time: 15, unit: 'MINUTES') {
-        waitUntil {
-          def res = sh(script: "curl -s http://sonarqube:9000/api/system/health | grep -o 'GREEN' || true",
-                       returnStdout: true).trim()
-          if (res != 'GREEN') {
-            echo '⏳ SonarQube not ready yet, retrying in 10s...'
-            sleep 10
-            return false
-          }
-          true
+        sstage('Wait for SonarQube') {
+    steps {
+        script {
+            timeout(time: 15, unit: 'MINUTES') {
+                waitUntil {
+                    def health = sh(
+                        script: "curl -s -u $SONAR_TOKEN: http://sonarqube:9000/api/system/health | jq -r .health || echo UNKNOWN",
+                        returnStdout: true
+                    ).trim()
+                    echo "SonarQube health: ${health}"
+                    return (health == "GREEN")
+                }
+            }
         }
-      }
     }
-  }
 }
 
 
