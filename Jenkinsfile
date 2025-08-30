@@ -56,7 +56,7 @@ pipeline {
         stage('Wait for SonarQube') {
   steps {
     script {
-      timeout(time: 7, unit: 'MINUTES') {
+      timeout(time: 15, unit: 'MINUTES') {
         waitUntil {
           def res = sh(script: "curl -s http://sonarqube:9000/api/system/health | grep -o 'GREEN' || true",
                        returnStdout: true).trim()
@@ -74,18 +74,21 @@ pipeline {
 
 
         stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        echo "🔎 Running SonarQube Scanner..."
-                        ./gradlew sonarqube \
-                          -Dsonar.projectKey=secure-cicd-project \
-                          -Dsonar.host.url=http://sonarqube:9000 \
-                          -Dsonar.login=$SONARQUBE_TOKEN
-                    '''
-                }
+    steps {
+        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+            withSonarQubeEnv('SonarQube') {
+                sh '''
+                    echo "🔎 Running SonarQube Scanner..."
+                    ./gradlew sonarqube \
+                      -Dsonar.projectKey=secure-cicd-project \
+                      -Dsonar.host.url=http://sonarqube:9000 \
+                      -Dsonar.login=$SONAR_TOKEN
+                '''
             }
         }
+    }
+}
+
 
         stage('Quality Gate') {
             steps {
