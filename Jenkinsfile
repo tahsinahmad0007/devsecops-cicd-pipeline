@@ -35,11 +35,45 @@ pipeline {
             }
         }
 
-        stage('Run Containers') {
+        stage('Run SonarQube + DB') {
             steps {
                 sh '''
-                    echo "🚀 Starting containers..."
-                    ${DOCKER_COMPOSE} up -d app sonarqube sonar-db
+                    echo "🚀 Starting SonarQube and DB containers..."
+                    ${DOCKER_COMPOSE} up -d sonar-db sonarqube
+                '''
+            }
+        }
+
+        stage('Wait for SonarQube') {
+            steps {
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                    script {
+                        timeout(time: 5, unit: 'MINUTES') {
+                            waitUntil {
+                                def response = sh(
+                                    script: "curl -s -u ${SONAR_TOKEN}: http://sonarqube:9000/api/system/health | grep -o GREEN || true",
+                                    returnStdout: true
+                                ).trim()
+                                if (response == "GREEN") {
+                                    echo "✅ SonarQube is ready!"
+                                    return true
+                                } else {
+                                    echo "⏳ SonarQube not ready yet, retrying in 10s..."
+                                    sleep 10
+                                    return false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Run Application') {
+            steps {
+                sh '''
+                    echo "🚀 Starting Application container..."
+                    ${DOCKER_COMPOSE} up -d app
                 '''
             }
         }
@@ -53,46 +87,21 @@ pipeline {
             }
         }
 
-        stage('Wait for SonarQube') {
-    steps {
-        script {
-            timeout(time: 5, unit: 'MINUTES') {
-                waitUntil {
-                    def response = sh(
-                        script: "curl -s -u ${SONAR_TOKEN}: http://sonarqube:9000/api/system/health | grep -o GREEN || true",
-                        returnStdout: true
-                    ).trim()
-                    if (response == "GREEN") {
-                        echo "✅ SonarQube is ready!"
-                        return true
-                    } else {
-                        echo "⏳ SonarQube not ready yet, retrying in 10s..."
-                        sleep 10
-                        return false
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv('SonarQube') {
+                        sh '''
+                            echo "🔎 Running SonarQube Scanner..."
+                            ./gradlew sonarqube \
+                              -Dsonar.projectKey=secure-cicd-project \
+                              -Dsonar.host.url=http://sonarqube:9000 \
+                              -Dsonar.login=$SONAR_TOKEN
+                        '''
                     }
                 }
             }
         }
-    }
-}
-
-
-        stage('SonarQube Analysis') {
-    steps {
-        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-            withSonarQubeEnv('SonarQube') {
-                sh '''
-                    echo "🔎 Running SonarQube Scanner..."
-                    ./gradlew sonarqube \
-                      -Dsonar.projectKey=secure-cicd-project \
-                      -Dsonar.host.url=http://sonarqube:9000 \
-                      -Dsonar.login=$SONAR_TOKEN
-                '''
-            }
-        }
-    }
-}
-
 
         stage('Quality Gate') {
             steps {
