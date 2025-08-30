@@ -89,23 +89,23 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('SonarQube') {
-                        sh '''
-                            echo "🔎 Running SonarQube Scanner..."
-                            ./gradlew sonarqube \
-                              -Dsonar.projectKey=secure-cicd-project \
-                              -Dsonar.host.url=http://sonarqube:9000 \
-                              -Dsonar.login=$SONAR_TOKEN
-                        '''
-                    }
-                }
+                withCredentials([string(credentialsId: 'jenkins-token', variable: 'SONAR_TOKEN')]) {
+    withSonarQubeEnv('SonarQube') {
+        sh '''
+            echo "🔎 Running SonarQube Scanner..."
+            ./gradlew sonarqube \
+              -Dsonar.projectKey=secure-cicd-project \
+              -Dsonar.host.url=http://sonarqube:9000 \
+              -Dsonar.login=$SONAR_TOKEN
+        '''
+    }
+}
             }
         }
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 15, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
