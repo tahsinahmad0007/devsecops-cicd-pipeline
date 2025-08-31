@@ -9,13 +9,14 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - sonarqube
+      sonarqube:
+        condition: service_healthy # Wait for SonarQube to be healthy before starting
     networks:
       - devsecops-net
 
   sonar-db:
     container_name: sonar-db
-    image: postgres:15
+    image: postgres:15 # Make sure this version is compatible with your SonarQube version
     restart: unless-stopped
     environment:
       - POSTGRES_USER=sonar
@@ -36,24 +37,21 @@ services:
       - SONAR_JDBC_URL=jdbc:postgresql://sonar-db:5432/sonar
       - SONAR_JDBC_USERNAME=sonar
       - SONAR_JDBC_PASSWORD=sonar
+      - SONAR_ES_JAVA_OPTS=-Xmx1g -Xms1g # Recommended for memory management
     depends_on:
       - sonar-db
     networks:
       - devsecops-net
-    deploy:
-      resources:
-        limits:
-          memory: 2g
-        reservations:
-          memory: 1g
     healthcheck:
-      test: ["CMD", "curl", "-s", "http://localhost:9000/api/system/health | grep -q GREEN || exit 1"]
+      # Correctly formatted healthcheck using CMD-SHELL to allow pipe (|) and logical OR (||)
+      test: CMD-SHELL curl -s -f http://localhost:9000/api/system/health | grep '"status":"GREEN"' || exit 1
       interval: 30s
       timeout: 10s
       retries: 10
-
-networks:
-  devsecops-net:
+      start_period: 120s # Give SonarQube time to initialize before starting checks
 
 volumes:
-  postgres_data:
+  postgres_data: {} # It's good practice to declare the volume driver, even if default
+
+networks:
+  devsecops-net: {} # Same for networks
