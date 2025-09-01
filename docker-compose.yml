@@ -1,3 +1,36 @@
+version: "3.9"
+
+services:
+  app:
+    container_name: devsecops-app
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - sonarqube
+    networks:
+      - devsecops-net
+
+  sonar-db:
+    container_name: sonar-db
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+      - POSTGRES_DB=sonar
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - devsecops-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar -d sonar"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   sonarqube:
     container_name: sonarqube
     image: sonarqube:lts-community
@@ -9,25 +42,17 @@
       - SONAR_JDBC_USERNAME=sonar
       - SONAR_JDBC_PASSWORD=sonar
     depends_on:
-      sonar-db:
-        condition: service_healthy
+      - sonar-db   # (no condition in v3.9 local mode)
     networks:
       - devsecops-net
-    deploy:
-      resources:
-        limits:
-          memory: 4g
-        reservations:
-          memory: 2g
     healthcheck:
-      test: ["CMD", "curl", "-s", "http://localhost:9000/api/system/health | grep -q GREEN || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
+      test: ["CMD-SHELL", "curl -fs http://localhost:9000/api/system/health?sonar.token=${SONAR_TOKEN} | grep -q GREEN"]
+    interval: 30s
+    timeout: 10s
+    retries: 10
 
+networks:
+  devsecops-net:
 
-  networks:
-    devsecops-net:
-
-  volumes:
-    postgres_data:
+volumes:
+  postgres_data:

@@ -46,12 +46,12 @@ pipeline {
 
         stage('Wait for SonarQube') {
             steps {
-                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'SONAR_ADMIN_TOKEN', variable: 'SONAR_ADMIN_TOKEN')]) {
                     script {
                         timeout(time: 15, unit: 'MINUTES') {
                             waitUntil {
                                 def response = sh(
-                                    script: "curl -s -u ${SONAR_TOKEN}: http://sonarqube:9000/api/system/health | grep -o GREEN || true",
+                                    script: "curl -s -u ${SONAR_ADMIN_TOKEN}: http://sonarqube:9000/api/system/health | grep -o GREEN || true",
                                     returnStdout: true
                                 ).trim()
                                 if (response == "GREEN") {
@@ -90,16 +90,16 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'jenkins-token', variable: 'SONAR_TOKEN')]) {
-    withSonarQubeEnv('SonarQube') {
-        sh '''
-            echo "🔎 Running SonarQube Scanner..."
-            ./gradlew sonarqube \
-              -Dsonar.projectKey=secure-cicd-project \
-              -Dsonar.host.url=http://sonarqube:9000 \
-              -Dsonar.login=$SONAR_TOKEN
-        '''
-    }
-}
+                    withSonarQubeEnv('SonarQube') {
+                        sh '''
+                            echo "🔎 Running SonarQube Scanner..."
+                            ./gradlew sonarqube \
+                              -Dsonar.projectKey=secure-cicd-project \
+                              -Dsonar.host.url=http://sonarqube:9000 \
+                              -Dsonar.login=$SONAR_TOKEN
+                        '''
+                    }
+                }
             }
         }
 
