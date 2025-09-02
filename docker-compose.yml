@@ -37,19 +37,31 @@ services:
     restart: unless-stopped
     ports:
       - "9000:9000"
-    environment:
-      - SONAR_JDBC_URL=jdbc:postgresql://sonar-db:5432/sonar
-      - SONAR_JDBC_USERNAME=sonar
-      - SONAR_JDBC_PASSWORD=sonar
     depends_on:
       - sonar-db   # (no condition in v3.9 local mode)
     networks:
       - devsecops-net
+    deploy:
+      resources:
+        limits:
+          memory: 2g    # Reduced from 4g
+        reservations:
+          memory: 1g    # Reduced from 2g
+    ulimits:           # Add these limits
+      nofile:
+        soft: 65536
+        hard: 65536
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://sonar-db:5432/sonar
+      - SONAR_JDBC_USERNAME=sonar
+      - SONAR_JDBC_PASSWORD=sonar
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true  # Add this line
     healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:9000/api/system/health?sonar.token=${SONAR_TOKEN} | grep -q GREEN"]
-    interval: 30s
-    timeout: 10s
-    retries: 10
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
 networks:
   devsecops-net:

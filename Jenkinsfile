@@ -3,6 +3,12 @@ pipeline {
 
     environment {
         DOCKER_COMPOSE = 'docker compose -f docker-compose.yml'
+        SONAR_URL = 'http://localhost:9000'
+    }
+
+    options {
+        timeout(time: 1, unit: 'HOURS')
+        retry(3)
     }
 
     stages {
@@ -46,24 +52,24 @@ pipeline {
 
         stage('Wait for SonarQube') {
             steps {
-                withCredentials([string(credentialsId: 'SONAR_ADMIN_TOKEN', variable: 'SONAR_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'sonar-admin-creds', 
+                               usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                     script {
-                        timeout(time: 15, unit: 'MINUTES') {
-                            waitUntil {
-                                def response = sh(
-                                    script: "curl -s -u ${SONAR_TOKEN}: http://sonarqube:9000/api/system/health | grep -o GREEN || true",
-                                    returnStdout: true
-                                ).trim()
-                                if (response == "GREEN") {
-                                    echo "✅ SonarQube is ready!"
-                                    return true
-                                } else {
-                                    echo "⏳ SonarQube not ready yet, retrying in 10s..."
-                                    sleep 10
-                                    return false
-                                }
+                        echo "⏳ Waiting for SonarQube to be ready..."
+                        retry(30) {
+                            sleep 10
+                            def response = sh(
+                                script: """
+                                    curl -sf -u ${USERNAME}:${PASSWORD} ${SONAR_URL}/api/system/health || echo "FAILED"
+                                """,
+                                returnStdout: true
+                            ).trim()
+                            
+                            if (!response.contains("GREEN")) {
+                                error "SonarQube health check failed: ${response}"
                             }
                         }
+                        echo "✅ SonarQube is ready!"
                     }
                 }
             }
@@ -89,16 +95,18 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'jenkins-token', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('SonarQube') {
-                        sh '''
-                            echo "🔎 Running SonarQube Scanner..."
-                            ./gradlew sonarqube \
-                              -Dsonar.projectKey=secure-cicd-project \
-                              -Dsonar.host.url=http://sonarqube:9000 \
-                              -Dsonar.login=$SONAR_TOKEN
-                        '''
-                    }
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                    sh """
+                        echo "🔎 Installing SonarScanner..."
+                        npm install -g sonarqube-scanner
+
+                        echo "🔍 Running SonarQube Analysis..."
+                        sonar-scanner \
+                          -Dsonar.projectKey=secure-cicd-project \
+                          -Dsonar.sources=. \
+                          -Dsonar.host.url=${SONAR_URL} \
+                          -Dsonar.login=${SONAR_TOKEN}
+                    """
                 }
             }
         }
@@ -118,6 +126,21 @@ pipeline {
                     docker ps
                 '''
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+            sh 'docker system prune -f'
+        }
+        failure {
+            echo '❌ Pipeline failed! Collecting logs...'
+            sh '''
+                docker logs devsecops-app || true
+                docker logs sonarqube || true
+                docker logs sonar-db || true
+            '''
         }
     }
 }
