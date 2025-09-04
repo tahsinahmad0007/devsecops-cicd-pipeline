@@ -1,8 +1,8 @@
 pipeline {
     agent any
     
-    triggers {
-        githubPush()
+    tools {
+        git 'Default'
     }
     
     environment {
@@ -16,33 +16,31 @@ pipeline {
             }
         }
 
-        stage('Test Webhook') {
-            steps {
-                echo "GitHub Webhook triggered successfully!"
-            }
-        }
-
         stage('SonarQube Analysis') {
             steps {
                 script {
                     def scannerHome = tool 'SonarScanner'
-                    withSonarQubeEnv('SonarQube') {
+                    withSonarQubeEnv(credentialsId: 'sonarqube-token', installationName: 'SonarQube') {
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
                             -Dsonar.projectKey=devsecops-project \
+                            -Dsonar.projectName='DevSecOps Pipeline Project' \
                             -Dsonar.sources=. \
                             -Dsonar.host.url=http://sonarqube:9000 \
-                            -Dsonar.login=\${SONAR_TOKEN}
+                            -Dsonar.login=\${SONAR_TOKEN} \
+                            -Dsonar.scm.provider=git
                         """
                     }
                 }
             }
         }
-    }
 
-    post {
-        success {
-            echo 'Pipeline completed successfully!'
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
         }
     }
 }
