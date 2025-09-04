@@ -16,6 +16,12 @@ pipeline {
             }
         }
 
+        stage('Test Webhook') {
+            steps {
+                echo "GitHub Webhook triggered successfully!"
+            }
+        }
+
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -31,6 +37,12 @@ pipeline {
                     }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
         }
     }
 }
