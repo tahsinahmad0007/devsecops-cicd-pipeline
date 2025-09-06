@@ -42,7 +42,6 @@ services:
       - SONAR_JDBC_PASSWORD=sonar
       - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
       - SONAR_FORCE_AUTHENTICATION=false
-      - SONAR_AUTH_ADMIN_CREDENTIALS=admin:admin
     ports:
       - "9000:9000"
     volumes:
@@ -54,45 +53,19 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2g    # Reduced from 4g
+          memory: 2g
         reservations:
-          memory: 1g    # Reduced from 2g
-    ulimits:           # Add these limits
+          memory: 1g
+    ulimits:
       nofile:
         soft: 65536
         hard: 65536
 
-  jenkins:
-    build:
-      context: ./jenkins
-      dockerfile: Dockerfile
-    container_name: devsecops-jenkins
-    env_file:
-      - .env
-    volumes:
-      - jenkins_home:/var/jenkins_home
-      - ./jenkins/init.groovy.d:/var/jenkins_home/init.groovy.d:ro
-    ports:
-      - "8080:8080"
-      - "50000:50000"
-    networks:
-      - devsecops-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
 networks:
   devsecops-network:
-    name: devsecops-network
 
 volumes:
   sonarqube_data:
   sonarqube_extensions:
   sonarqube_logs:
   postgresql_data:
-  jenkins_home:
-    name: jenkins_home
