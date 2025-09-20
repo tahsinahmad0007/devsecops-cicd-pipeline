@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    // 🎯 ADD THIS SECTION - Tools Configuration
+    tools {
+        nodejs 'Node-18'  // This must match the name you set in Jenkins Tools
+    }
+
     environment {
         DOCKER_COMPOSE = 'docker-compose -f docker-compose.yml'
         SONARQUBE_URL = 'http://localhost:9000'
@@ -55,7 +60,7 @@ pipeline {
                         waitUntil {
                             script {
                                 def result = bat(
-                                    script: 'curl -s -u admin:pass@123 http://localhost:9000/api/system/health',
+                                    script: 'curl -s -u admin:admin http://localhost:9000/api/system/health',
                                     returnStatus: true
                                 )
                                 return result == 0
@@ -71,6 +76,10 @@ pipeline {
             steps {
                 bat '''
                     echo Running tests...
+                    echo Node.js version:
+                    node --version
+                    echo NPM version:
+                    npm --version
                     cd app
                     npm test
                 '''
