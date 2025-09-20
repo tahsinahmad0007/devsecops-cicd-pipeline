@@ -55,7 +55,7 @@ pipeline {
                         waitUntil {
                             script {
                                 def result = bat(
-                                    script: 'curl -s -u admin:admin http://localhost:9000/api/system/health',
+                                    script: 'curl -s -u admin:pass@123 http://localhost:9000/api/system/health',
                                     returnStatus: true
                                 )
                                 return result == 0
