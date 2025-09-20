@@ -11,17 +11,13 @@ services:
     depends_on:
       - sonarqube
     networks:
-<<<<<<< HEAD
-      - devsecops-net
+      - devsecops-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-=======
-      - devsecops-network
->>>>>>> 7ec7c9339e3e0bf3cc87bd3b1d4eabe7432e3f8c
 
   sonar-db:
     container_name: sonar-db
@@ -59,21 +55,6 @@ services:
       - sonarqube_extensions:/opt/sonarqube/extensions
       - sonarqube_logs:/opt/sonarqube/logs
     networks:
-<<<<<<< HEAD
-      - devsecops-net
-    deploy:
-      resources:
-        limits:
-          memory: 4g
-        reservations:
-          memory: 2g
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-=======
       - devsecops-network
     deploy:
       resources:
@@ -85,10 +66,10 @@ services:
       nofile:
         soft: 65536
         hard: 65536
->>>>>>> 7ec7c9339e3e0bf3cc87bd3b1d4eabe7432e3f8c
 
 networks:
   devsecops-network:
+    driver: bridge
 
 volumes:
   sonarqube_data:
