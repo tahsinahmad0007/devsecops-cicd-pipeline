@@ -9,7 +9,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    credentialsId: '41505621-933c-4924-b4e0-e3bf67f60ea9',
+                    credentialsId: 'github-pat',
                     url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
             }
         }
@@ -46,12 +46,12 @@ pipeline {
 
         stage('Wait for SonarQube') {
             steps {
-                withCredentials([string(credentialsId: 'SONAR_ADMIN_TOKEN', variable: 'SONAR_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'sonar-admin', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                     script {
                         timeout(time: 15, unit: 'MINUTES') {
                             waitUntil {
                                 def response = sh(
-                                    script: "curl -s -u ${SONAR_TOKEN}: http://sonarqube:9000/api/system/health | grep -o GREEN || true",
+                                    script: "curl -s -u $USERNAME:$PASSWORD http://sonarqube:9000/api/system/health | grep -o GREEN || true",
                                     returnStdout: true
                                 ).trim()
                                 if (response == "GREEN") {
@@ -93,10 +93,14 @@ pipeline {
                     withSonarQubeEnv('SonarQube') {
                         sh '''
                             echo "🔎 Running SonarQube Scanner..."
-                            ./gradlew sonarqube \
+                            sonar-scanner \
                               -Dsonar.projectKey=secure-cicd-project \
+                              -Dsonar.sources=./app \
                               -Dsonar.host.url=http://sonarqube:9000 \
-                              -Dsonar.login=$SONAR_TOKEN
+                              -Dsonar.login=$SONAR_TOKEN \
+                              -Dsonar.javascript.node.maxspace=4096 \
+                              -Dsonar.sourceEncoding=UTF-8 \
+                              -Dsonar.exclusions=**/node_modules/**,**/*.test.js
                         '''
                     }
                 }

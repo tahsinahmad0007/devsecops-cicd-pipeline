@@ -12,6 +12,12 @@ services:
       - sonarqube
     networks:
       - devsecops-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   sonar-db:
     container_name: sonar-db
@@ -45,11 +51,18 @@ services:
       - sonar-db   # (no condition in v3.9 local mode)
     networks:
       - devsecops-net
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+        reservations:
+          memory: 2g
     healthcheck:
-      test: ["CMD-SHELL", "curl -fs http://localhost:9000/api/system/health?sonar.token=${SONAR_TOKEN} | grep -q GREEN"]
-    interval: 30s
-    timeout: 10s
-    retries: 10
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
 networks:
   devsecops-net:
