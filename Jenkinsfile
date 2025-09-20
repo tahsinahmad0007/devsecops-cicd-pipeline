@@ -19,10 +19,11 @@ pipeline {
         stage('Cleanup Old Containers') {
             steps {
                 bat '''
-                    echo Cleaning up old containers...
-                    for /f %%i in ('docker ps -aq --filter name=devsecops-app 2^>nul') do docker rm -f %%i 2>nul
-                    for /f %%i in ('docker ps -aq --filter name=sonarqube 2^>nul') do docker rm -f %%i 2>nul
-                    for /f %%i in ('docker ps -aq --filter name=sonar-db 2^>nul') do docker rm -f %%i 2>nul
+                    echo Cleaning up old containers and networks...
+                    docker stop sonar-db sonarqube devsecops-app 2>nul || echo "Containers not running"
+                    docker rm -f sonar-db sonarqube devsecops-app 2>nul || echo "Containers not found"
+                    docker network ls --format "{{.Name}}" | findstr /C:"devsecops-ci_devsecops-network" >nul && docker network rm devsecops-ci_devsecops-network || echo "Network not found"
+                    docker system prune -f
                     echo Cleanup completed
                 '''
             }
