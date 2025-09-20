@@ -11,6 +11,7 @@ services:
     depends_on:
       - sonarqube
     networks:
+<<<<<<< HEAD
       - devsecops-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
@@ -18,6 +19,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+=======
+      - devsecops-network
+>>>>>>> 7ec7c9339e3e0bf3cc87bd3b1d4eabe7432e3f8c
 
   sonar-db:
     container_name: sonar-db
@@ -28,9 +32,9 @@ services:
       - POSTGRES_PASSWORD=sonar
       - POSTGRES_DB=sonar
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgresql_data:/var/lib/postgresql/data
     networks:
-      - devsecops-net
+      - devsecops-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sonar -d sonar"]
       interval: 10s
@@ -38,18 +42,24 @@ services:
       retries: 10
 
   sonarqube:
-    container_name: sonarqube
     image: sonarqube:lts-community
-    restart: unless-stopped
-    ports:
-      - "9000:9000"
+    container_name: sonarqube
+    depends_on:
+      - sonar-db
     environment:
       - SONAR_JDBC_URL=jdbc:postgresql://sonar-db:5432/sonar
       - SONAR_JDBC_USERNAME=sonar
       - SONAR_JDBC_PASSWORD=sonar
-    depends_on:
-      - sonar-db   # (no condition in v3.9 local mode)
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+      - SONAR_FORCE_AUTHENTICATION=false
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
     networks:
+<<<<<<< HEAD
       - devsecops-net
     deploy:
       resources:
@@ -63,9 +73,25 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+=======
+      - devsecops-network
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+>>>>>>> 7ec7c9339e3e0bf3cc87bd3b1d4eabe7432e3f8c
 
 networks:
-  devsecops-net:
+  devsecops-network:
 
 volumes:
-  postgres_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  postgresql_data:

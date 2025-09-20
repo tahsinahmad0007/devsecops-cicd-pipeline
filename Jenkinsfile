@@ -3,13 +3,19 @@ pipeline {
 
     environment {
         DOCKER_COMPOSE = 'docker compose -f docker-compose.yml'
+        SONARQUBE_URL = 'http://localhost:9000'
+        PROJECT_KEY = 'DevSecOps-Pipeline_Project'
     }
 
     stages {
         stage('Checkout') {
             steps {
                 git branch: 'main',
+<<<<<<< HEAD
                     credentialsId: 'github-pat',
+=======
+                    credentialsId: 'github-credentials',  // Updated credential ID
+>>>>>>> 7ec7c9339e3e0bf3cc87bd3b1d4eabe7432e3f8c
                     url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
             }
         }
@@ -17,15 +23,16 @@ pipeline {
         stage('Cleanup Old Containers') {
             steps {
                 sh '''
-                    echo "🧹 Cleaning up old containers (excluding Jenkins)..."
-                    docker ps -aq --filter name=devsecops-app | xargs -r docker rm -f
-                    docker ps -aq --filter name=sonarqube | xargs -r docker rm -f
-                    docker ps -aq --filter name=sonar-db | xargs -r docker rm -f
-                    docker images devsecops-ci-app -q | xargs -r docker rmi -f
+                    echo "🧹 Cleaning up old containers..."
+                    docker ps -aq --filter name=devsecops-app | xargs -r docker rm -f || true
+                    docker ps -aq --filter name=sonarqube | xargs -r docker rm -f || true
+                    docker ps -aq --filter name=sonar-db | xargs -r docker rm -f || true
+                    docker images devsecops-ci-app -q | xargs -r docker rmi -f || true
                 '''
             }
         }
 
+<<<<<<< HEAD
         stage('Build Docker Images') {
             steps {
                 sh '''
@@ -123,5 +130,8 @@ pipeline {
                 '''
             }
         }
+=======
+        // ... rest of your stages remain the same
+>>>>>>> 7ec7c9339e3e0bf3cc87bd3b1d4eabe7432e3f8c
     }
 }
