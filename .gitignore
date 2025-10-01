@@ -16,3 +16,7 @@ node_modules/
 Thumbs.db
 
 trivy-cache/
+dast-scan.bat
+ecs-task-def.json
+terraform/
+secure-cicd-devsecops-enhanced
