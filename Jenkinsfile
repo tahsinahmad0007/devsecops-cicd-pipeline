@@ -16,7 +16,7 @@ pipeline {
             steps {
                 git branch: 'main',
                     credentialsId: 'github-pat',
-                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops-enhanced.git'
+                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
             }
         }
 
