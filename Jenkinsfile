@@ -12,14 +12,6 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    credentialsId: 'github-pat',
-                    url: 'https://github.com/sahiliftekhar/secure-cicd-devsecops.git'
-            }
-        }
-
         stage('Cleanup Old Containers') {
             steps {
                 bat '''
@@ -104,8 +96,7 @@ pipeline {
                     echo sonar.sources=. >> sonar-project.properties
                     echo sonar.exclusions=node_modules/**,coverage/**,test/**,*.test.js >> sonar-project.properties
                     echo sonar.host.url=%SONARQUBE_URL% >> sonar-project.properties
-                    echo sonar.login=admin >> sonar-project.properties
-                    echo sonar.password=admin >> sonar-project.properties
+                    echo sonar.login=squ_6d1f95d51cda1116c9cdb2208e6976cf4a56c6f5 >> sonar-project.properties
                     echo sonar.javascript.lcov.reportPaths=coverage/lcov.info >> sonar-project.properties
                     
                     REM Run SonarQube analysis
@@ -166,7 +157,7 @@ pipeline {
                 bat '''
                     echo Running health checks...
                     curl http://localhost:3000/health || echo Health check will be available soon
-                    echo ✅ Enhanced DevSecOps Pipeline completed successfully!
+                    echo ✅ DevSecOps Pipeline completed successfully!
                 '''
             }
         }
@@ -184,10 +175,10 @@ pipeline {
             '''
         }
         success {
-            echo "🎉 Enhanced DevSecOps Pipeline completed successfully with Quality Analysis!"
+            echo "🎉 DevSecOps Pipeline completed successfully with Quality Analysis!"
         }
         failure {
-            echo "❌ Enhanced Pipeline failed! Check quality gates and logs above."
+            echo "❌ Pipeline failed! Check quality gates and logs above."
         }
     }
 }
