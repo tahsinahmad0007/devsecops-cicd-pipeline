@@ -84,7 +84,7 @@ pipeline {
             steps {
                 bat '''
                     echo Building Docker images for AWS ECS deployment...
-                    docker build -t devsecops-ci-app:latest -f Dockerfile ./app
+                    docker build -t devsecops-ci-app:latest ./app
                     docker tag devsecops-ci-app:latest %IMAGE_URI%
                     docker tag devsecops-ci-app:latest %IMAGE_LATEST%
                     echo Docker images built successfully
@@ -286,28 +286,30 @@ pipeline {
         }
 
         stage('Get ECS Service URL') {
-            steps {
-                script {
-                    // Get the load balancer DNS name for the ECS service
-                    def serviceUrl = bat(
-                        script: '''
-                            REM Get target group ARN from ECS service
-                            for /f "tokens=*" %%i in ('aws ecs describe-services --cluster %ECS_CLUSTER% --services %ECS_SERVICE% --region %AWS_REGION% --query "services[0].loadBalancers[0].targetGroupArn" --output text') do set TG_ARN=%%i
-                            
-                            REM Get load balancer ARN from target group
-                            for /f "tokens=*" %%j in ('aws elbv2 describe-target-groups --target-group-arns %TG_ARN% --region %AWS_REGION% --query "TargetGroups[0].LoadBalancerArns[0]" --output text') do set LB_ARN=%%j
-                            
-                            REM Get DNS name from load balancer
-                            aws elbv2 describe-load-balancers --load-balancer-arns %LB_ARN% --region %AWS_REGION% --query "LoadBalancers[0].DNSName" --output text
-                        ''',
-                        returnStdout: true
-                    ).trim()
-                    
-                    env.ECS_SERVICE_URL = "http://${serviceUrl}"
-                    echo "ECS Service URL: ${env.ECS_SERVICE_URL}"
-                }
-            }
+    steps {
+        bat '''
+            echo Getting ECS Service URL...
+            
+            REM Get target group ARN from ECS service
+            for /f "tokens=*" %%i in ('aws ecs describe-services --cluster %ECS_CLUSTER% --services %ECS_SERVICE% --region %AWS_REGION% --query "services[0].loadBalancers[0].targetGroupArn" --output text') do set TG_ARN=%%i
+            
+            REM Get load balancer ARN from target group  
+            for /f "tokens=*" %%j in ('aws elbv2 describe-target-groups --target-group-arns %TG_ARN% --region %AWS_REGION% --query "TargetGroups[0].LoadBalancerArns[0]" --output text') do set LB_ARN=%%j
+            
+            REM Get DNS name from load balancer
+            for /f "tokens=*" %%k in ('aws elbv2 describe-load-balancers --load-balancer-arns %LB_ARN% --region %AWS_REGION% --query "LoadBalancers[0].DNSName" --output text') do set ECS_DNS=%%k
+            
+            echo ECS Service URL: http://%%ECS_DNS%%
+            echo http://%%ECS_DNS%% > ecs_url.txt
+        '''
+        script {
+            def ecsUrl = readFile('ecs_url.txt').trim()
+            env.ECS_SERVICE_URL = ecsUrl
+            echo "ECS Service URL set to: ${env.ECS_SERVICE_URL}"
         }
+    }
+}
+
 
         stage('AWS Health Check') {
             steps {
