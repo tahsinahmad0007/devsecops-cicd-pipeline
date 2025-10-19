@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         // AWS Configuration
-        AWS_ACCOUNT_ID = '863207306654'
+        AWS_ACCOUNT_ID = ''
         AWS_REGION = 'ap-south-1'
         AWS_DEFAULT_REGION = 'ap-south-1'
         ECS_CLUSTER = 'devsecops-app-cluster'
@@ -186,7 +186,7 @@ pipeline {
                     echo sonar.sources=. >> sonar-project.properties
                     echo sonar.exclusions=node_modules/**,coverage/**,test/**,*.test.js >> sonar-project.properties
                     echo sonar.host.url=%SONARQUBE_URL% >> sonar-project.properties
-                    echo sonar.login=squ_6d1f95d51cda1116c9cdb2208e6976cf4a56c6f5 >> sonar-project.properties
+                    echo sonar.login=squ_ef5dc485aef6ce27d844a9950414dd04ebc52763 >> sonar-project.properties
                     echo sonar.javascript.lcov.reportPaths=coverage/lcov.info >> sonar-project.properties
                     
                     REM Run SonarQube analysis
