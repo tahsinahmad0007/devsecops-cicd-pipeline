@@ -1,3 +1,6 @@
+# ==========================
+# VPC Configuration
+# ==========================
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
@@ -8,6 +11,9 @@ resource "aws_vpc" "main" {
   }
 }
 
+# ==========================
+# Internet Gateway
+# ==========================
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
@@ -16,13 +22,15 @@ resource "aws_internet_gateway" "main" {
   }
 }
 
+# ==========================
+# Public Subnets (Static AZs)
+# ==========================
 resource "aws_subnet" "public" {
-  count = length(var.public_subnet_cidrs)
+  count = 2  # Create 2 subnets
 
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.public_subnet_cidrs[count.index]
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidrs[count.index]
+  availability_zone       = count.index == 0 ? "ap-south-1a" : "ap-south-1b"
   map_public_ip_on_launch = true
 
   tags = {
@@ -30,18 +38,24 @@ resource "aws_subnet" "public" {
   }
 }
 
+# ==========================
+# Private Subnets (Static AZs)
+# ==========================
 resource "aws_subnet" "private" {
-  count = length(var.private_subnet_cidrs)
+  count = 2  # Create 2 subnets
 
   vpc_id            = aws_vpc.main.id
   cidr_block        = var.private_subnet_cidrs[count.index]
-  availability_zone = data.aws_availability_zones.available.names[count.index]
+  availability_zone = count.index == 0 ? "ap-south-1a" : "ap-south-1b"
 
   tags = {
     Name = "${var.app_name}-private-subnet-${count.index + 1}"
   }
 }
 
+# ==========================
+# Public Route Table
+# ==========================
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -55,8 +69,11 @@ resource "aws_route_table" "public" {
   }
 }
 
+# ==========================
+# Associate Public Subnets with Route Table
+# ==========================
 resource "aws_route_table_association" "public" {
-  count = length(var.public_subnet_cidrs)
+  count = 2
 
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id

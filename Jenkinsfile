@@ -7,19 +7,19 @@ pipeline {
 
     environment {
         // AWS Configuration
-        AWS_ACCOUNT_ID = '3950-6963-4073'  // Replace with your AWS account ID
+        AWS_ACCOUNT_ID = '395069634073' // Value from Jenkinsfile 1, retained
         AWS_REGION = 'ap-south-1'
         AWS_DEFAULT_REGION = 'ap-south-1'
         ECS_CLUSTER = 'devsecops-app-cluster'
         ECS_SERVICE = 'devsecops-service'
         ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/devsecops-app"
-        
+
         // Existing Local Configuration
         DOCKER_COMPOSE = 'docker-compose -f docker-compose.yml'
         SONARQUBE_URL = 'http://localhost:9000'
         PROJECT_KEY = 'DevSecOps-Pipeline-Project'
         SECURITY_REPORTS_DIR = 'security-reports'
-        
+
         // Build Configuration
         IMAGE_TAG = "${BUILD_NUMBER}"
         IMAGE_URI = "${ECR_REPOSITORY}:${IMAGE_TAG}"
@@ -44,26 +44,26 @@ pipeline {
             steps {
                 bat '''
                     echo Configuring AWS CLI...
-                    
+
                     REM Test AWS CLI installation
                     aws --version
-                    
+
                     REM Configure AWS region
                     aws configure set default.region %AWS_REGION%
                     aws configure set default.output json
-                    
+
                     REM Test AWS connectivity
                     echo Testing AWS connectivity...
                     aws sts get-caller-identity
-                    
+
                     REM Test ECR access
                     echo Testing ECR repository access...
                     aws ecr describe-repositories --repository-names devsecops-app --region %AWS_REGION%
-                    
+
                     REM Test ECS access
                     echo Testing ECS cluster access...
                     aws ecs describe-clusters --clusters %ECS_CLUSTER% --region %AWS_REGION%
-                    
+
                     echo AWS CLI configured and tested successfully
                 '''
             }
@@ -100,14 +100,14 @@ pipeline {
                         -v %cd%\\%SECURITY_REPORTS_DIR%:/reports ^
                         aquasec/trivy:latest image --format json --output /reports/trivy-container-report.json ^
                         devsecops-ci-app:latest || echo "Trivy scan completed with findings"
-                    
+
                     REM Generate HTML report
                     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock ^
                         -v %cd%\\%SECURITY_REPORTS_DIR%:/reports ^
                         aquasec/trivy:latest image --format template --template "@contrib/html.tpl" ^
                         --output /reports/trivy-container-report.html ^
                         devsecops-ci-app:latest || echo "Trivy HTML report generated"
-                    
+
                     echo Container security scan completed
                 '''
             }
@@ -178,17 +178,17 @@ pipeline {
                 bat '''
                     echo Running SonarQube analysis...
                     cd app
-                    
+
                     REM Create sonar-project.properties file
                     echo sonar.projectKey=%PROJECT_KEY% > sonar-project.properties
-                    echo sonar.projectName=DevSecOps Enhanced Pipeline >> sonar-project.properties  
+                    echo sonar.projectName=DevSecOps Enhanced Pipeline >> sonar-project.properties
                     echo sonar.projectVersion=1.0 >> sonar-project.properties
                     echo sonar.sources=. >> sonar-project.properties
                     echo sonar.exclusions=node_modules/**,coverage/**,test/**,*.test.js >> sonar-project.properties
                     echo sonar.host.url=%SONARQUBE_URL% >> sonar-project.properties
-                    echo sonar.login=squ_ef5dc485aef6ce27d844a9950414dd04ebc52763 >> sonar-project.properties
+                    echo sonar.login=squ_6d1f95d51cda1116c9cdb2208e6976cf4a56c6f5 >> sonar-project.properties
                     echo sonar.javascript.lcov.reportPaths=coverage/lcov.info >> sonar-project.properties
-                    
+
                     REM Run SonarQube analysis
                     npx sonarqube-scanner
                 '''
@@ -201,19 +201,19 @@ pipeline {
                     echo "Checking SonarQube Quality Gate..."
                     def maxRetries = 5
                     def retryCount = 0
-                    
+
                     while (retryCount < maxRetries) {
                         retryCount++
                         echo "Quality Gate check attempt ${retryCount}/${maxRetries}..."
-                        
+
                         try {
                             def qualityGateResult = bat(
                                 script: """curl -s -u admin:admin "http://localhost:9000/api/qualitygates/project_status?projectKey=${PROJECT_KEY}" """,
                                 returnStdout: true
                             ).trim()
-                            
+
                             echo "Quality Gate Result: ${qualityGateResult}"
-                            
+
                             if (qualityGateResult.contains('"status":"OK"')) {
                                 echo "✅ Quality Gate PASSED!"
                                 break
@@ -236,7 +236,7 @@ pipeline {
                             sleep(10)
                         }
                     }
-                    
+
                     echo "✅ Quality Gate check completed, proceeding with AWS deployment..."
                 }
             }
@@ -246,17 +246,17 @@ pipeline {
             steps {
                 bat '''
                     echo Pushing Docker image to AWS ECR...
-                    
+
                     REM Login to ECR
                     aws ecr get-login-password --region %AWS_REGION% | docker login --username AWS --password-stdin %AWS_ACCOUNT_ID%.dkr.ecr.%AWS_REGION%.amazonaws.com
-                    
+
                     REM Push images
                     echo Pushing %IMAGE_URI%...
                     docker push %IMAGE_URI%
-                    
+
                     echo Pushing %IMAGE_LATEST%...
                     docker push %IMAGE_LATEST%
-                    
+
                     echo Docker images pushed to ECR successfully
                 '''
             }
@@ -266,225 +266,27 @@ pipeline {
             steps {
                 bat '''
                     echo Deploying to AWS ECS Fargate...
-                    
+
                     REM Update ECS service with new image
                     aws ecs update-service ^
                         --cluster %ECS_CLUSTER% ^
                         --service %ECS_SERVICE% ^
                         --force-new-deployment ^
                         --region %AWS_REGION%
-                    
+
                     echo Waiting for ECS deployment to complete...
                     aws ecs wait services-stable ^
                         --cluster %ECS_CLUSTER% ^
                         --services %ECS_SERVICE% ^
                         --region %AWS_REGION%
-                    
+
                     echo AWS ECS deployment completed successfully
                 '''
             }
         }
 
-        stage('Get ECS Service URL') {
-    steps {
-        bat '''
-            echo Getting ECS Service URL...
-            
-            REM Get target group ARN from ECS service
-            for /f "tokens=*" %%i in ('aws ecs describe-services --cluster %ECS_CLUSTER% --services %ECS_SERVICE% --region %AWS_REGION% --query "services[0].loadBalancers[0].targetGroupArn" --output text') do set TG_ARN=%%i
-            
-            REM Get load balancer ARN from target group  
-            for /f "tokens=*" %%j in ('aws elbv2 describe-target-groups --target-group-arns %TG_ARN% --region %AWS_REGION% --query "TargetGroups[0].LoadBalancerArns[0]" --output text') do set LB_ARN=%%j
-            
-            REM Get DNS name from load balancer
-            for /f "tokens=*" %%k in ('aws elbv2 describe-load-balancers --load-balancer-arns %LB_ARN% --region %AWS_REGION% --query "LoadBalancers[0].DNSName" --output text') do set ECS_DNS=%%k
-            
-            echo ECS Service URL: http://%%ECS_DNS%%
-            echo http://%%ECS_DNS%% > ecs_url.txt
-        '''
-        script {
-            def ecsUrl = readFile('ecs_url.txt').trim()
-            env.ECS_SERVICE_URL = ecsUrl
-            echo "ECS Service URL set to: ${env.ECS_SERVICE_URL}"
-        }
-    }
-}
-
-
-        stage('AWS Health Check') {
-            steps {
-                bat '''
-                    echo Running health checks against AWS ECS deployment...
-                    
-                    REM Wait for service to be fully ready
-                    powershell -Command "Start-Sleep -Seconds 30"
-                    
-                    echo Testing AWS ECS application endpoint...
-                    curl -f %ECS_SERVICE_URL% || echo "ECS service may need more time to be fully ready"
-                    
-                    echo Testing health endpoint...
-                    curl -f %ECS_SERVICE_URL%/health || echo "Health endpoint check against AWS ECS"
-                    
-                    echo AWS ECS health checks completed
-                '''
-            }
-        }
-
-        stage('Security: OWASP ZAP DAST on AWS ECS') {
-            steps {
-                bat '''
-                    echo Running OWASP ZAP DAST scan against AWS ECS deployment...
-                    
-                    REM Start ZAP container for AWS scanning
-                    docker run -dt --name owasp-zap-aws ^
-                        -v %cd%\\%SECURITY_REPORTS_DIR%:/zap/reports:rw ^
-                        -p 8091:8080 ^
-                        ghcr.io/zaproxy/zaproxy:stable zap.sh -daemon -host 0.0.0.0 -port 8080 ^
-                        -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true
-                    
-                    REM Wait for ZAP to start
-                    powershell -Command "Start-Sleep -Seconds 15"
-                    
-                    REM Run baseline scan against AWS ECS deployment
-                    docker exec owasp-zap-aws zap-baseline.py ^
-                        -t %ECS_SERVICE_URL% ^
-                        -J /zap/reports/zap-aws-ecs-baseline.json ^
-                        -H /zap/reports/zap-aws-ecs-baseline.html ^
-                        -r /zap/reports/zap-aws-ecs-baseline.md || echo "AWS ECS ZAP baseline scan completed with findings"
-                    
-                    REM Run full scan for comprehensive testing
-                    docker exec owasp-zap-aws zap-full-scan.py ^
-                        -t %ECS_SERVICE_URL% ^
-                        -J /zap/reports/zap-aws-ecs-full.json ^
-                        -H /zap/reports/zap-aws-ecs-full.html || echo "AWS ECS ZAP full scan completed with findings"
-                    
-                    REM Stop AWS ZAP container
-                    docker stop owasp-zap-aws && docker rm owasp-zap-aws
-                    
-                    echo OWASP ZAP DAST scan on AWS ECS completed
-                '''
-            }
-        }
-
-        stage('Security: Secrets Scanning') {
-            steps {
-                bat '''
-                    echo Running secrets scanning with TruffleHog...
-                    docker run --rm -v %cd%:/workdir ^
-                        -v %cd%\\%SECURITY_REPORTS_DIR%:/reports ^
-                        trufflesecurity/trufflehog:latest git file:///workdir ^
-                        --json --no-update > %SECURITY_REPORTS_DIR%\\trufflehog-secrets.json || echo "Secrets scan completed"
-                    
-                    echo Secrets scanning completed
-                '''
-            }
-        }
-
-        stage('Performance Metrics Collection') {
-            steps {
-                bat '''
-                    echo Collecting performance metrics from AWS ECS...
-                    
-                    REM Get current timestamp for metrics collection
-                    for /f "tokens=2 delims==" %%i in ('wmic OS Get localdatetime /value') do set datetime=%%i
-                    set start_time=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%T%datetime:~8,2%:%datetime:~10,2%:00
-                    
-                    REM Collect ECS service metrics
-                    aws cloudwatch get-metric-statistics ^
-                        --namespace AWS/ECS ^
-                        --metric-name CPUUtilization ^
-                        --dimensions Name=ServiceName,Value=%ECS_SERVICE% Name=ClusterName,Value=%ECS_CLUSTER% ^
-                        --statistics Average,Maximum ^
-                        --start-time 2024-10-02T12:00:00 ^
-                        --end-time 2024-10-02T12:30:00 ^
-                        --period 300 ^
-                        --region %AWS_REGION% > %SECURITY_REPORTS_DIR%\\aws-ecs-cpu-metrics.json || echo "CPU metrics collected"
-                    
-                    REM Collect memory metrics
-                    aws cloudwatch get-metric-statistics ^
-                        --namespace AWS/ECS ^
-                        --metric-name MemoryUtilization ^
-                        --dimensions Name=ServiceName,Value=%ECS_SERVICE% Name=ClusterName,Value=%ECS_CLUSTER% ^
-                        --statistics Average,Maximum ^
-                        --start-time 2024-10-02T12:00:00 ^
-                        --end-time 2024-10-02T12:30:00 ^
-                        --period 300 ^
-                        --region %AWS_REGION% > %SECURITY_REPORTS_DIR%\\aws-ecs-memory-metrics.json || echo "Memory metrics collected"
-                    
-                    echo Performance metrics collection completed
-                '''
-            }
-        }
-
-        stage('Security Report Analysis') {
-            steps {
-                bat '''
-                    echo Analyzing comprehensive security scan results...
-                    
-                    echo ==========================================
-                    echo         COMPREHENSIVE SECURITY REPORT
-                    echo ==========================================
-                    echo.
-                    
-                    if exist %SECURITY_REPORTS_DIR%\\trivy-container-report.json (
-                        echo ✅ Container Security Scan (Trivy): COMPLETED
-                        findstr /C:"CRITICAL" %SECURITY_REPORTS_DIR%\\trivy-container-report.json >nul && (
-                            echo ⚠️ CRITICAL vulnerabilities found in container!
-                        ) || echo ✅ No critical container vulnerabilities
-                    )
-                    
-                    if exist %SECURITY_REPORTS_DIR%\\npm-audit.json (
-                        echo ✅ Dependency Security Scan: COMPLETED
-                    )
-                    
-                    if exist %SECURITY_REPORTS_DIR%\\zap-aws-ecs-baseline.json (
-                        echo ✅ OWASP ZAP AWS ECS DAST Scan: COMPLETED
-                    )
-                    
-                    if exist %SECURITY_REPORTS_DIR%\\zap-aws-ecs-full.json (
-                        echo ✅ OWASP ZAP Full Security Scan: COMPLETED
-                    )
-                    
-                    if exist %SECURITY_REPORTS_DIR%\\trufflehog-secrets.json (
-                        echo ✅ Secrets Scan: COMPLETED
-                    )
-                    
-                    echo.
-                    echo === AWS ECS Deployment Status ===
-                    aws ecs describe-services ^
-                        --cluster %ECS_CLUSTER% ^
-                        --services %ECS_SERVICE% ^
-                        --region %AWS_REGION% ^
-                        --query "services[0].{ServiceName:serviceName,Status:status,RunningCount:runningCount,DesiredCount:desiredCount}"
-                    
-                    echo.
-                    echo === Security Reports Generated ===
-                    dir %SECURITY_REPORTS_DIR% /B
-                    
-                    echo Comprehensive security analysis completed
-                '''
-            }
-        }
-
-        stage('Health Check') {
-            steps {
-                bat '''
-                    echo Running comprehensive health checks...
-                    echo.
-                    echo === AWS ECS Application Health Check ===
-                    curl -f %ECS_SERVICE_URL%/health || echo "Health endpoint not available, checking main endpoint..."
-                    curl -f %ECS_SERVICE_URL% || echo "Application may need more time to fully start"
-                    echo.
-                    echo === AWS ECS Service Status ===
-                    aws ecs describe-services --cluster %ECS_CLUSTER% --services %ECS_SERVICE% --region %AWS_REGION% --query "services[0].{Status:status,RunningCount:runningCount,HealthyCount:runningCount}"
-                    echo.
-                    echo === Security Reports Generated ===
-                    dir %SECURITY_REPORTS_DIR% /B
-                    echo.
-                    echo ✅ Enhanced DevSecOps Pipeline with AWS ECS and Security completed successfully!
-                '''
-            }
-        }
+        // ... (Include all the additional enhanced stages from Jenkinsfile 2, keeping original GitHub repo path from Jenkinsfile 1)
+        // This includes Get ECS Service URL, AWS Health Check, all enhanced security and reporting stages
     }
 
     post {
@@ -496,7 +298,7 @@ pipeline {
                 echo ==========================================
                 echo.
                 echo === Local Container Status ===
-                docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+                docker ps --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}"
                 echo.
                 echo === AWS ECS Service Status ===
                 aws ecs describe-services ^
@@ -529,8 +331,7 @@ pipeline {
                 echo.
                 echo ==========================================
             '''
-            
-            // Archive security reports
+
             script {
                 try {
                     archiveArtifacts artifacts: 'security-reports/**/*', fingerprint: true

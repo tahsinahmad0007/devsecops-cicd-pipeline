@@ -13,17 +13,22 @@ output "ecs_cluster_name" {
   value       = aws_ecs_cluster.main.name
 }
 
-output "alb_dns_name" {
-  description = "ALB DNS name"
-  value       = aws_lb.main.dns_name
+output "public_subnet_ids" {
+  description = "Public subnet IDs"
+  value       = aws_subnet.public[*].id
 }
 
-output "alb_zone_id" {
-  description = "ALB zone ID"
-  value       = aws_lb.main.zone_id
+output "ecs_security_group_id" {
+  description = "ECS tasks security group ID"
+  value       = aws_security_group.ecs_tasks.id
 }
 
-output "target_group_arn" {
-  description = "ALB Target group ARN"
-  value       = aws_lb_target_group.app.arn
-}
+# COMMENTED OUT - ALB outputs
+# output "alb_dns_name" {
+#   description = "ALB DNS name"
+#   value       = aws_lb.main.dns_name
+# }
+# output "target_group_arn" {
+#   description = "ALB Target group ARN"
+#   value       = aws_lb_target_group.app.arn
+# }
