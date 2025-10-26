@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     tools {
-        nodejs 'Node-18'
+        nodejs 'NodeJS 25.0.0'
     }
 
     environment {
         // AWS Configuration
-        AWS_ACCOUNT_ID = ''
+        AWS_ACCOUNT_ID = '3950-6963-4073'  // Replace with your AWS account ID
         AWS_REGION = 'ap-south-1'
         AWS_DEFAULT_REGION = 'ap-south-1'
         ECS_CLUSTER = 'devsecops-app-cluster'
